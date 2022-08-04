@@ -1,4 +1,5 @@
-import 'package:chatapp/screens/home_screen.dart';
+import 'package:chatapp/screens/completeprofile_screen.dart';
+import 'package:chatapp/screens/login_page.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 
@@ -19,7 +20,7 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         primarySwatch: Colors.blue,
       ),
-      home: const HomeScreen(),
+      home: const ComppleteProfileScreen(),
     );
   }
 }
