@@ -1,19 +1,25 @@
 import 'dart:io';
-
+import 'package:chatapp/models/user_model.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:image_cropper/image_cropper.dart';
 import 'package:image_picker/image_picker.dart';
 
 class ComppleteProfileScreen extends StatefulWidget {
-  const ComppleteProfileScreen({Key? key}) : super(key: key);
+  final UserModel? userModel;
+  final User? firebaseuser;
+  const ComppleteProfileScreen({Key? key, this.firebaseuser, this.userModel})
+      : super(key: key);
 
   @override
-  State<ComppleteProfileScreen> createState() => _ComppleteProfileScreenState();
+  State<ComppleteProfileScreen> createState() => _CompleteProfileScreenState();
 }
 
-class _ComppleteProfileScreenState extends State<ComppleteProfileScreen> {
-  late File imageFile;
+class _CompleteProfileScreenState extends State<ComppleteProfileScreen> {
+  File? imageFile;
   TextEditingController fullnameController = TextEditingController();
 
   void selectImage(ImageSource imageSource) async {
@@ -24,7 +30,16 @@ class _ComppleteProfileScreenState extends State<ComppleteProfileScreen> {
   }
 
   void cropImage(XFile file) async {
-    // File? croppedImage = await ImageCropper.cropImage(sourcePath: file.path);
+    CroppedFile? croppedImage = await ImageCropper().cropImage(
+      sourcePath: file.path,
+      aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1),
+      compressQuality: 20,
+    );
+    if (croppedImage != null) {
+      setState(() {
+        imageFile = File(croppedImage.path);
+      });
+    }
   }
 
   void showPhotesOptions() {
@@ -38,6 +53,7 @@ class _ComppleteProfileScreenState extends State<ComppleteProfileScreen> {
               children: [
                 ListTile(
                   onTap: () {
+                    Navigator.pop(context);
                     selectImage(ImageSource.gallery);
                   },
                   leading: const Icon(Icons.photo_album),
@@ -45,6 +61,7 @@ class _ComppleteProfileScreenState extends State<ComppleteProfileScreen> {
                 ),
                 ListTile(
                   onTap: () {
+                    Navigator.pop(context);
                     selectImage(ImageSource.camera);
                   },
                   leading: const Icon(Icons.camera_alt),
@@ -54,6 +71,34 @@ class _ComppleteProfileScreenState extends State<ComppleteProfileScreen> {
             ),
           );
         });
+  }
+
+  void checkValues() {
+    String fullname = fullnameController.text.trim();
+    if (fullname == null || imageFile == null) {
+      print('please all the fields');
+    } else {
+      uploadData();
+    }
+  }
+
+  void uploadData() async {
+    UploadTask uploadTask = FirebaseStorage.instance
+        .ref('profilepictures')
+        .child(widget.userModel!.uid.toString())
+        .putFile(imageFile!);
+    TaskSnapshot snapshot = await uploadTask;
+
+    String imageUrl = await snapshot.ref.getDownloadURL();
+    String fullname = fullnameController.text.trim();
+
+    widget.userModel!.fullname = fullname;
+    widget.userModel!.profilePic = imageUrl;
+    await FirebaseFirestore.instance
+        .collection("users")
+        .doc(widget.userModel!.uid)
+        .set(widget.userModel!.toMap())
+        .then((value) => print('data uploaded'));
   }
 
   @override
@@ -73,14 +118,20 @@ class _ComppleteProfileScreenState extends State<ComppleteProfileScreen> {
                 height: 20,
               ),
               CupertinoButton(
-                child: const CircleAvatar(
+                child: CircleAvatar(
                   radius: 60,
-                  child: Icon(
-                    Icons.person,
-                    size: 60,
-                  ),
+                  backgroundImage:
+                      (imageFile != null) ? FileImage(imageFile!) : null,
+                  child: (imageFile == null)
+                      ? const Icon(
+                          Icons.person,
+                          size: 60,
+                        )
+                      : null,
                 ),
-                onPressed: () {},
+                onPressed: () {
+                  showPhotesOptions();
+                },
               ),
               const SizedBox(
                 height: 20,
